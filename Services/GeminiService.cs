@@ -73,6 +73,7 @@ public class GeminiService
         sb.AppendLine();
         sb.AppendLine("참여자들의 가용 시간:");
 
+
         foreach (var av in availabilities)
         {
             sb.AppendLine($"  - 사용자: {av.UserId}");
@@ -87,7 +88,7 @@ public class GeminiService
 
         sb.AppendLine();
         sb.AppendLine("위 정보를 기반으로 모든 참여자가 참석 가능한 '가장 최적의 회의 시간' TOP 3를 추천해줘.");
-        sb.AppendLine("반드시 다음 JSON 형식으로만 답변해줘. 추가 설명은 하지 말고 JSON만 출력해줘:");
+        sb.AppendLine("반드시 다음 JSON 형식으로만 답변해줘. 이유(reason)는 한 문장으로 짧게 작성해:");
         sb.AppendLine("[");
         sb.AppendLine("  { \"time\": \"YYYY-MM-DD HH:MM\", \"reason\": \"이유\" },");
         sb.AppendLine("  { \"time\": \"YYYY-MM-DD HH:MM\", \"reason\": \"이유\" },");
@@ -117,7 +118,7 @@ public class GeminiService
                 temperature = 0.2, // 낮은 온도로 안정적인 JSON 출력
                 topK = 40,
                 topP = 0.95,
-                maxOutputTokens = 1000
+                maxOutputTokens = 2000
             }
         };
 
