@@ -20,6 +20,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<MongoDBService>();
 builder.Services.AddSingleton<AuthService>();
+builder.Services.AddScoped<GeminiService>();  // ✅ 추가
+builder.Services.AddHttpClient<GeminiService>();  // ✅ HttpClient 등록
 
 // 🔧 JWT Authentication 설정 추가
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -178,4 +178,91 @@ public class SlotsController : ControllerBase
             return StatusCode(500, new { success = false, error = e.Message });
         }
     }
+
+    [HttpPost("ai-recommend-slots")]
+    public async Task<IActionResult> AiRecommendSlots(
+    [FromBody] SuggestSlotsRequest request,
+    [FromServices] GeminiService geminiService)
+    {
+        try
+        {
+            var meeting = await _mongoDB.Meetings
+                .Find(x => x.Id == request.MeetingId)
+                .FirstOrDefaultAsync();
+
+            if (meeting == null)
+                return NotFound(new { success = false, error = "MEETING_NOT_FOUND" });
+
+            var team = await _mongoDB.Teams
+                .Find(x => x.Id == meeting.TeamId)
+                .FirstOrDefaultAsync();
+
+            if (team?.Members == null || !team.Members.Any())
+                return BadRequest(new { success = false, error = "NO_TEAM_MEMBERS" });
+
+            var memberIds = team.Members.Select(m => m.UserId).ToList();
+
+            // 7일 간의 가용성 조회
+            var startDate = DateTime.UtcNow;
+            var dateRange = Enumerable.Range(0, 7)
+                .Select(d => startDate.AddDays(d).ToString("yyyy-MM-dd"))
+                .ToList();
+
+            var availabilities = await _mongoDB.UserCalendars
+                .Find(x => memberIds.Contains(x.UserId) && dateRange.Contains(x.Date))
+                .ToListAsync();
+
+            // ✅ Gemini AI 추천 호출
+            var recommendedTimes = await geminiService.RecommendBestSlots(meeting, availabilities, topN: 5);
+
+            if (!recommendedTimes.Any())
+                return Ok(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        recommended_slots = new List<object>(),
+                        message = "AI 추천 결과가 없습니다"
+                    }
+                });
+
+            // 추천된 시간대로 ProposedSlot 생성
+            var slots = new List<ProposedSlot>();
+            foreach (var time in recommendedTimes)
+            {
+                if (DateTime.TryParse(time, out var startTime))
+                {
+                    slots.Add(new ProposedSlot
+                    {
+                        Id = ObjectId.GenerateNewId().ToString(),
+                        MeetingId = meeting.Id,
+                        StartTime = startTime,
+                        EndTime = startTime.AddMinutes(meeting.DurationMinutes),
+                        AiScore = 95.0, // ✅ AI 추천이라 높은 점수
+                        Responses = new List<SlotResponse>(),
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            if (slots.Any())
+                await _mongoDB.ProposedSlots.InsertManyAsync(slots);
+
+            return Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    recommended_count = slots.Count,
+                    slots = slots
+                }
+            });
+        }
+        catch (Exception e)
+        {
+            return StatusCode(500, new { success = false, error = e.Message });
+        }
+    }
 }
+
+
