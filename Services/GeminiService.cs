@@ -10,7 +10,7 @@ public class GeminiService
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
     // Gemini 3.0 Flash (또는 최신 Flash 모델)
-    private const string GeminiApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+    private const string GeminiApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent";
 
     public GeminiService(IConfiguration config, HttpClient httpClient)
     {
