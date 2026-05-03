@@ -36,20 +36,41 @@ namespace UI_Forms
         }
 
         // API에서 받아온 일정 슬롯을 화면에 추가
-        public void AddScheduleSlot(string timeRange, Color bgColor)
+        // DayControl.cs 내부의 메서드 수정
+        public void AddScheduleSlot(string title, Color color, bool isFullBox)
         {
             Label lblSlot = new Label
             {
-                Text = timeRange,
-                BackColor = bgColor,
-                ForeColor = Color.White,
+                Text = $"  {title}", // 선 표시를 위해 약간의 여백 추가
                 Font = new Font("맑은 고딕", 8F, FontStyle.Bold),
-                Width = flpSchedules.Width - 6,
+                Width = flpSchedules.Width - 8,
                 Height = 22,
-                Margin = new Padding(1, 1, 1, 1),
-                TextAlign = ContentAlignment.MiddleCenter,
+                Margin = new Padding(2, 1, 2, 1),
+                TextAlign = ContentAlignment.MiddleLeft,
                 Cursor = Cursors.Hand
             };
+
+            if (isFullBox)
+            {
+                // 박스 형태 (연일 일정 등)
+                lblSlot.BackColor = color;
+                lblSlot.ForeColor = Color.White;
+            }
+            else
+            {
+                // 선 형태 (당일 일정)
+                lblSlot.BackColor = Color.White;
+                lblSlot.ForeColor = Color.Black;
+
+                // 커스텀 페인팅: 왼쪽에 두꺼운 색상 선 그리기
+                lblSlot.Paint += (s, e) => {
+                    Control paintLabel = (Control)s;
+                    using (Pen p = new Pen(color, 6)) // 3px 두께의 선
+                    {
+                        e.Graphics.DrawLine(p, 2, 2, 2, paintLabel.Height - 4);
+                    }
+                };
+            }
 
             flpSchedules.Controls.Add(lblSlot);
         }
