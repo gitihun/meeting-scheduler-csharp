@@ -1,8 +1,6 @@
 ﻿using UI_Forms.Models;
 using System;
 using System.Windows.Forms;
-using UI_Forms;
-using UI_Forms.Models;
 
 namespace UI_Forms
 {

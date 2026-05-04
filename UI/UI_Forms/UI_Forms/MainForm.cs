@@ -145,15 +145,19 @@ namespace UI_Forms
                                     // 🌟 [조건 1] 색상 결정: 팀 일정은 무조건 LightCoral, 개인은 저장된 색(없으면 기본색)
                                     Color scheduleColor = isTeamView ? Color.LightCoral : Color.CornflowerBlue;
 
+                                    // 🌟 API 응답 데이터를 시간 문자열로 변환하여 제목으로 사용
+                                    // (개인 일정은 제목 필드가 없으므로 시간을 표시해주는 것이 직관적임)
+                                    string displayTitle = isTeamView ? "팀 미팅" : $"{slot.Start} 가용";
+
                                     // 🌟 [조건 2] 형태 결정: 시작일과 종료일이 다르면 FullBox
                                     bool isFullBox = false;
-                                    if (DateTime.TryParse(slot.Start, out DateTime sTime) && DateTime.TryParse(slot.End, out DateTime eTime))
-                                    {
-                                        if (sTime.Date != eTime.Date) isFullBox = true;
-                                    }
+                                    // 시작/종료 시간이 00:00~23:59 형식이면 박스 처리
+                                    if (slot.Start == "00:00" && slot.End == "23:59") isFullBox = true;
 
-                                    // 일정 렌더링 호출
-                                    _dayControls[index].AddScheduleSlot(slot.Start + " 일정", scheduleColor, isFullBox);
+                                    this.Invoke(new Action(() =>
+                                    {
+                                        _dayControls[index].AddScheduleSlot(displayTitle, scheduleColor, isFullBox);
+                                    }));
                                 }
                             }));
                         }
@@ -195,11 +199,15 @@ namespace UI_Forms
             await RenderCalendarAsync();
         }
 
-        private async void btnAddSchedule_Click(object sender, EventArgs e)
+        private async void btnAddAvailability_Click(object sender, EventArgs e)
         {
-            using (AddScheduleForm addForm = new AddScheduleForm())
+            // 기존 AddScheduleForm 대신 새로 만든 AddAvailabilityForm 호출
+            using (AddAvailabilityForm addForm = new AddAvailabilityForm())
             {
-                if (addForm.ShowDialog() == DialogResult.OK) await RenderCalendarAsync();
+                if (addForm.ShowDialog() == DialogResult.OK)
+                {
+                    await RenderCalendarAsync(); // 다이얼로그 확인 후 꺼지면 자동 새로고침
+                }
             }
         }
     }

@@ -23,7 +23,6 @@ namespace UI_Forms
             SetupColorPicker();
             SetupPlaceholder();
 
-            // 기본값 설정 (시작일/종료일 오늘로 통일)
             dtpStartDate.Value = DateTime.Today;
             dtpEndDate.Value = DateTime.Today;
         }
@@ -50,23 +49,35 @@ namespace UI_Forms
             };
         }
 
+        // 🌟 시간과 분을 따로 세팅하는 메서드
         private void SetupTimeComboBoxes()
         {
-            cmbStartTime.Items.Clear();
-            cmbEndTime.Items.Clear();
+            cmbStartHour.Items.Clear();
+            cmbEndHour.Items.Clear();
+            cmbStartMinute.Items.Clear();
+            cmbEndMinute.Items.Clear();
 
+            // 시간: 00 ~ 23
             for (int h = 0; h < 24; h++)
             {
-                for (int m = 0; m < 60; m += 30)
-                {
-                    string time = $"{h:D2}:{m:D2}";
-                    cmbStartTime.Items.Add(time);
-                    cmbEndTime.Items.Add(time);
-                }
+                string hourStr = $"{h:D2}";
+                cmbStartHour.Items.Add(hourStr);
+                cmbEndHour.Items.Add(hourStr);
             }
 
-            cmbStartTime.SelectedIndex = 18; // 기본 09:00
-            cmbEndTime.SelectedIndex = 20;   // 기본 10:00
+            // 분: 00, 10, 20, 30, 40, 50 (원하시면 증감값을 1로 하여 1분 단위로도 가능)
+            for (int m = 0; m < 60; m += 10)
+            {
+                string minuteStr = $"{m:D2}";
+                cmbStartMinute.Items.Add(minuteStr);
+                cmbEndMinute.Items.Add(minuteStr);
+            }
+
+            // 기본값 설정 (09:00 ~ 10:00)
+            cmbStartHour.SelectedIndex = 9;   // 09시
+            cmbStartMinute.SelectedIndex = 0; // 00분
+            cmbEndHour.SelectedIndex = 10;    // 10시
+            cmbEndMinute.SelectedIndex = 0;   // 00분
         }
 
         private void SetupColorPicker()
@@ -109,75 +120,56 @@ namespace UI_Forms
                 return;
             }
 
-            // 날짜 및 시간 계산
-            TimeSpan sTime = TimeSpan.Parse(cmbStartTime.Text);
-            TimeSpan eTime = TimeSpan.Parse(cmbEndTime.Text);
-            DateTime startDateTime = dtpStartDate.Value.Date.Add(sTime);
-            DateTime endDateTime = dtpEndDate.Value.Date.Add(eTime);
+            // 🌟 콤보박스의 시, 분 텍스트를 합쳐서 시간 문자열(HH:mm) 생성
+            string startSlot = $"{cmbStartHour.Text}:{cmbStartMinute.Text}";
+            string endSlot = $"{cmbEndHour.Text}:{cmbEndMinute.Text}";
 
-            // 🌟 유효성 검사: 종료 시간이 시작 시간보다 앞서거나 같으면 차단
+            DateTime startDateTime = dtpStartDate.Value.Date.Add(TimeSpan.Parse(startSlot));
+            DateTime endDateTime = dtpEndDate.Value.Date.Add(TimeSpan.Parse(endSlot));
+
             if (startDateTime >= endDateTime)
             {
-                MessageBox.Show("종료 시간은 시작 시간 이후여야 합니다.", "시간 설정 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("종료 시간은 시작 시간 이후여야 합니다.", "시간 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             btnSave.Enabled = false;
-
             try
             {
                 bool allSuccess = true;
-                DateTime currentDate = startDateTime.Date;
-                DateTime endDate = endDateTime.Date;
+                DateTime current = startDateTime.Date;
+                DateTime endLimit = endDateTime.Date;
 
-                // 🌟 멀티 데이 처리 로직: 여러 날짜에 걸친 일정이면 하루 단위로 쪼개서 서버로 전송
-                while (currentDate <= endDate)
+                while (current <= endLimit)
                 {
-                    string slotStart = (currentDate == startDateTime.Date) ? cmbStartTime.Text : "00:00";
-                    string slotEnd = (currentDate == endDate) ? cmbEndTime.Text : "23:59";
+                    string slotStart = (current == startDateTime.Date) ? startSlot : "00:00";
+                    string slotEnd = (current == endLimit) ? endSlot : "23:59";
 
-                    // 끝나는 날의 시간이 00:00 이라면, 그 날짜에는 일정이 없는 것으로 간주하고 스킵
-                    if (slotStart == "00:00" && slotEnd == "00:00")
-                    {
-                        currentDate = currentDate.AddDays(1);
-                        continue;
-                    }
+                    if (slotStart == slotEnd) { current = current.AddDays(1); continue; }
 
                     var request = new
                     {
                         userId = ApiService.CurrentUserId,
-                        date = currentDate.ToString("yyyy-MM-dd"),
-                        slots = new[] {
-                            new { start = slotStart, end = slotEnd }
-                        }
+                        date = current.ToString("yyyy-MM-dd"),
+                        slots = new[] { new { start = slotStart, end = slotEnd } }
                     };
 
                     var response = await ApiService.PostAsync<object, ApiResponse<object>>("/api/availability", request);
-                    if (response == null || !response.Success)
-                    {
-                        allSuccess = false;
-                        MessageBox.Show($"[{currentDate:yyyy-MM-dd}] 저장 실패: {response?.Error}", "오류");
-                    }
+                    if (response == null || !response.Success) allSuccess = false;
 
-                    currentDate = currentDate.AddDays(1);
+                    current = current.AddDays(1);
                 }
 
-                // 🌟 생성 완료 응답(성공)을 받으면 다이얼로그 표시 후 모달 종료
                 if (allSuccess)
                 {
-                    MessageBox.Show("일정이 성공적으로 등록되었습니다.", "저장 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    this.DialogResult = DialogResult.OK; // 부모 창(MainForm)에 성공을 알림
-                    this.Close(); // 확인을 누르면 모달 창 닫힘
+                    MessageBox.Show("일정이 등록되었습니다.", "성공", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    this.DialogResult = DialogResult.OK;
+                    this.Close();
                 }
+                else MessageBox.Show("일부 날짜 저장에 실패했습니다.");
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"통신 중 오류 발생: {ex.Message}", "네트워크 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                btnSave.Enabled = true;
-            }
+            catch (Exception ex) { MessageBox.Show("오류: " + ex.Message); }
+            finally { btnSave.Enabled = true; }
         }
 
         private void btnCancel_Click(object sender, EventArgs e) => this.Close();
